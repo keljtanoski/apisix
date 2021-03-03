@@ -1,3 +1,7 @@
+---
+title: 架构设计
+---
+
 <!--
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
@@ -17,20 +21,29 @@
 #
 -->
 
-# 目录
+## 目录
 
-- [**APISIX**](#apisix)
-- [**APISIX Config**](#apisix-config)
-- [**Route**](#route)
-- [**Service**](#service)
-- [**Plugin**](#plugin)
-- [**Script**](#script)
-- [**Upstream**](#upstream)
-- [**Router**](#router)
-- [**Consumer**](#consumer-1)
-- [**Global Rule**](#global-rule)
-- [**Plugin Config**](#plugin-config)
-- [**Debug mode**](#debug-mode)
+- [目录](#目录)
+- [APISIX](#apisix)
+  - [插件加载流程](#插件加载流程)
+  - [插件内部结构](#插件内部结构)
+- [APISIX Config](#apisix-config)
+- [Route](#route)
+- [Service](#service)
+- [Plugin](#plugin)
+- [Script](#script)
+- [Upstream](#upstream)
+  - [配置参数](#配置参数)
+    - [Consumer](#consumer)
+      - [Cookie](#cookie)
+      - [Header](#header)
+- [Router](#router)
+- [Consumer](#consumer-1)
+- [Global Rule](#global-rule)
+- [Plugin Config](#plugin-config)
+- [Debug mode](#debug-mode)
+  - [基本调试模式](#基本调试模式)
+  - [高级调试模式](#高级调试模式)
 
 ## APISIX
 
@@ -40,7 +53,7 @@
 
 ### 插件内部结构
 
-<img src="../../assets/images/flow-plugin-internal.png" width="50%" height="50%">
+<img src="../../assets/images/flow-plugin-internal.png" width="50%" height="50%" />
 
 ## APISIX Config
 
@@ -50,7 +63,7 @@
 
 ```yaml
 apisix:
-  node_listen: 8000             # APISIX listening port
+  node_listen: 8000 # APISIX listening port
 ```
 
 比如指定 APISIX 默认监听端口为 8000，并且设置 etcd 地址为 `http://foo:2379`，
@@ -58,16 +71,16 @@ apisix:
 
 ```yaml
 apisix:
-  node_listen: 8000             # APISIX listening port
+  node_listen: 8000 # APISIX listening port
 
 etcd:
-  host: "http://foo:2379"       # etcd address
+  host: "http://foo:2379" # etcd address
 ```
 
 其他默认配置，可以在 `conf/config-default.yaml` 文件中看到，该文件是与 APISIX 源码强绑定，
 **永远不要**手工修改 `conf/config-default.yaml` 文件。如果需要自定义任何配置，都应在 `config.yaml` 文件中完成。
 
-*注意* 不要手工修改 APISIX 自身的 `conf/nginx.conf` 文件，当服务每次启动时，`apisix`
+_注意_ 不要手工修改 APISIX 自身的 `conf/nginx.conf` 文件，当服务每次启动时，`apisix`
 会根据 `config.yaml` 配置自动生成新的 `conf/nginx.conf` 并自动启动服务。
 
 [返回目录](#目录)
@@ -80,7 +93,7 @@ Route 字面意思就是路由，通过定义一些规则来匹配客户端的�
 Route 中主要包含三部分内容：匹配规则(比如 uri、host、remote_addr 等)，插件配置(限流限速等)和上游信息。
 请看下图示例，是一些 Route 规则的实例，当某些属性值相同时，图中用相同颜色标识。
 
-<img src="../../assets/images/routes-example.png" width="50%" height="50%">
+<img src="../../assets/images/routes-example.png" width="50%" height="50%" />
 
 我们直接在 Route 中完成所有参数的配置，优点是容易设置，每个 Route 都相对独立自由度比较高。但当我们的 Route 有比较多的重复配置（比如启用相同的插件配置或上游信息），一旦我们要更新这些相同属性时，就需要遍历所有 Route 并进行修改，给后期管理维护增加不少复杂度。
 
@@ -121,7 +134,7 @@ Server: APISIX web server
 `Service` 是某类 API 的抽象（也可以理解为一组 Route 的抽象）。它通常与上游服务抽象是一一对应的，`Route`
 与 `Service` 之间，通常是 N:1 的关系，参看下图。
 
-<img src="../../assets/images/service-example.png" width="50%" height="50%">
+<img src="../../assets/images/service-example.png" width="50%" height="50%" />
 
 不同 Route 规则同时绑定到一个 Service 上，这些 Route 将具有相同的上游和插件配置，减少冗余配置。
 
@@ -265,7 +278,7 @@ local _M = {
 
 Upstream 是虚拟主机抽象，对给定的多个服务节点按照配置规则进行负载均衡。Upstream 的地址信息可以直接配置到 `Route`（或 `Service`) 上，当 Upstream 有重复时，就需要用“引用”方式避免重复了。
 
-<img src="../../assets/images/upstream-example.png" width="50%" height="50%">
+<img src="../../assets/images/upstream-example.png" width="50%" height="50%" />
 
 如上图所示，通过创建 Upstream 对象，在 `Route` 用 ID 方式引用，就可以确保只维护一个对象的值了。
 
@@ -363,13 +376,13 @@ curl http://127.0.0.1:9080/apisix/admin/routes/1 -H 'X-API-KEY: edd1c9f034335f13
 }'
 ```
 
-更多细节可以参考[健康检查的文档](../health-check.md)。
+更多细节可以参考[健康检查的文档](./health-check.md)。
 
 下面是几个使用不同`hash_on`类型的配置示例：
 
 #### Consumer
 
-创建一个consumer对象:
+创建一个 consumer 对象:
 
 ```shell
 curl http://127.0.0.1:9080/apisix/admin/consumers -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
@@ -469,17 +482,18 @@ APISIX 区别于其他 API 网关的一大特点是允许用户选择不同 Rout
 
 在本地配置 `conf/config.yaml` 中设置最符合自身业务需求的路由。
 
-* `apisix.router.http`: HTTP 请求路由。
-    * `radixtree_uri`: （默认）只使用 `uri` 作为主索引。基于 `radixtree` 引擎，支持全量和深前缀匹配，更多见 [如何使用 router-radixtree](../router-radixtree.md)。
-        * `绝对匹配`：完整匹配给定的 `uri` ，比如 `/foo/bar`，`/foo/glo`。
-        * `前缀匹配`：末尾使用 `*` 代表给定的 `uri` 是前缀匹配。比如 `/foo*`，则允许匹配 `/foo/`、`/foo/a`和`/foo/b`等。
-        * `匹配优先级`：优先尝试绝对匹配，若无法命中绝对匹配，再尝试前缀匹配。
-        * `任意过滤属性`：允许指定任何 Nginx 内置变量作为过滤条件，比如 URL 请求参数、请求头、cookie 等。
-    * `radixtree_uri_with_parameter`: 同 `radixtree_uri` 但额外有参数匹配的功能。
-    * `radixtree_host_uri`: 使用 `host + uri` 作为主索引（基于 `radixtree` 引擎），对当前请求会同时匹配 host 和 uri，支持的匹配条件与 `radixtree_uri` 基本一致。
+- `apisix.router.http`: HTTP 请求路由。
 
-* `apisix.router.ssl`: SSL 加载匹配路由。
-    * `radixtree_sni`: （默认）使用 `SNI` (Server Name Indication) 作为主索引（基于 radixtree 引擎）。
+  - `radixtree_uri`: （默认）只使用 `uri` 作为主索引。基于 `radixtree` 引擎，支持全量和深前缀匹配，更多见 [如何使用 router-radixtree](../../en/latest/router-radixtree.md)。
+    - `绝对匹配`：完整匹配给定的 `uri` ，比如 `/foo/bar`，`/foo/glo`。
+    - `前缀匹配`：末尾使用 `*` 代表给定的 `uri` 是前缀匹配。比如 `/foo*`，则允许匹配 `/foo/`、`/foo/a`和`/foo/b`等。
+    - `匹配优先级`：优先尝试绝对匹配，若无法命中绝对匹配，再尝试前缀匹配。
+    - `任意过滤属性`：允许指定任何 Nginx 内置变量作为过滤条件，比如 URL 请求参数、请求头、cookie 等。
+  - `radixtree_uri_with_parameter`: 同 `radixtree_uri` 但额外有参数匹配的功能。
+  - `radixtree_host_uri`: 使用 `host + uri` 作为主索引（基于 `radixtree` 引擎），对当前请求会同时匹配 host 和 uri，支持的匹配条件与 `radixtree_uri` 基本一致。
+
+- `apisix.router.ssl`: SSL 加载匹配路由。
+  - `radixtree_sni`: （默认）使用 `SNI` (Server Name Indication) 作为主索引（基于 radixtree 引擎）。
 
 [返回目录](#目录)
 
@@ -488,7 +502,7 @@ APISIX 区别于其他 API 网关的一大特点是允许用户选择不同 Rout
 对于 API 网关通常可以用请求域名、客户端 IP 地址等字段识别到某类请求方，
 然后进行插件过滤并转发请求到指定上游，但有时候这个深度不够。
 
-<img src="../../assets/images/consumer-who.png" width="50%" height="50%">
+<img src="../../assets/images/consumer-who.png" width="50%" height="50%" />
 
 如上图所示，作为 API 网关，需要知道 API Consumer（消费方）具体是谁，这样就可以对不同 API Consumer 配置不同规则。
 
@@ -499,16 +513,16 @@ APISIX 区别于其他 API 网关的一大特点是允许用户选择不同 Rout
 
 在 APISIX 中，识别 Consumer 的过程如下图：
 
-<img src="../../assets/images/consumer-internal.png" width="50%" height="50%">
+<img src="../../assets/images/consumer-internal.png" width="50%" height="50%" />
 
-1. 授权认证：比如有 [key-auth](../plugins/key-auth.md)、[JWT](plugins/jwt-auth.md) 等。
+1. 授权认证：比如有 [key-auth](plugins/key-auth.md)、[JWT](plugins/jwt-auth.md) 等。
 2. 获取 consumer_name：通过授权认证，即可自然获取到对应的 Consumer name，它是 Consumer 对象的唯一识别标识。
 3. 获取 Consumer 上绑定的 Plugin 或 Upstream 信息：完成对不同 Consumer 做不同配置的效果。
 
 概括一下，Consumer 是某类服务的消费者，需与用户认证体系配合才能使用。
 比如不同的 Consumer 请求同一个 API，网关服务根据当前请求用户信息，对应不同的 Plugin 或 Upstream 配置。
 
-此外，大家也可以参考 [key-auth](../plugins/key-auth.md) 认证授权插件的调用逻辑，辅助大家来进一步理解 Consumer 概念和使用。
+此外，大家也可以参考 [key-auth](plugins/key-auth.md) 认证授权插件的调用逻辑，辅助大家来进一步理解 Consumer 概念和使用。
 
 如何对某个 Consumer 开启指定插件，可以看下面例子：
 
@@ -559,7 +573,7 @@ HTTP/1.1 503 Service Temporarily Unavailable
 
 ```
 
-结合 [consumer-restriction](plugins/consumer-restriction.md) 插件，限制jack对该 route 的访问
+结合 [consumer-restriction](plugins/consumer-restriction.md) 插件，限制 jack 对该 route 的访问
 
 ```shell
 # 设置黑名单，禁止jack访问该API
@@ -685,7 +699,7 @@ $ curl http://127.0.0.1:9080/apisix/admin/routes/1 -H 'X-API-KEY: edd1c9f034335f
 }
 ```
 
-+
+-
 
 ```
 {
@@ -792,19 +806,18 @@ hello world
 
 ```yaml
 hook_conf:
-  enable: false                 # 是否开启 hook 追踪调试
-  name: hook_phase              # 开启 hook 追踪调试的模块列表名称
-  log_level: warn               # 日志级别
-  is_print_input_args: true     # 是否打印输入参数
-  is_print_return_value: true   # 是否打印返回值
+  enable: false # 是否开启 hook 追踪调试
+  name: hook_phase # 开启 hook 追踪调试的模块列表名称
+  log_level: warn # 日志级别
+  is_print_input_args: true # 是否打印输入参数
+  is_print_return_value: true # 是否打印返回值
 
-hook_phase:                     # 模块函数列表，名字：hook_phase
-  apisix:                       # 引用的模块名称
-    - http_access_phase         # 函数名：数组
+hook_phase: # 模块函数列表，名字：hook_phase
+  apisix: # 引用的模块名称
+    - http_access_phase # 函数名：数组
     - http_header_filter_phase
     - http_body_filter_phase
     - http_log_phase
-
 #END
 ```
 
